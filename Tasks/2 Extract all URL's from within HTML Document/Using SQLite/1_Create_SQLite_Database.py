@@ -25,3 +25,5 @@ cur.execute("""
   )
 """)
 con.commit()
+
+print("Successfully created sqlite database")

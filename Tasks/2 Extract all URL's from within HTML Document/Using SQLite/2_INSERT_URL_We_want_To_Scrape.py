@@ -22,4 +22,4 @@ con.commit()
 
 cur.execute("SELECT COUNT(*) FROM URLS_T")
 if (cur.fetchone()[0] >= 1):
-  print(f"Sucefully added {url_to_insert}")
+  print(f"Sucefully added URL={url_to_insert} to database")
