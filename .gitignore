@@ -2,3 +2,5 @@
 *.json
 *.sqlite
 env
+*.db
+__pycache__
