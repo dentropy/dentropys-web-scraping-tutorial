@@ -102,9 +102,9 @@ class WebScrapingOrchestration():
     for link in soup.find_all('a'):
       # print(link)
       FULL_URL = link.get('href')
-      parsed_url = list( urlparse(html_contents_row["full_url"]) )
+      parsed_url = list( urlparse(FULL_URL) )
       if (parsed_url[1] == ''):
-        parsed_url[1] = url.netloc
+        parsed_url[1] = urlparse(html_contents_row["full_url"]).netloc
       url_links.append( [FULL_URL] + parsed_url )
     url_column_dict = dict(Urls.__table__.columns)
     del url_column_dict["id"]
