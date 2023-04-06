@@ -28,7 +28,7 @@ class Urls(Base):
         self.fragment = fragment
 
 class Scarping_queue(Base):
-   __tablename__ = 'scraping_queue'
+   __tablename__ = 'scraping_queue_t'
    id = Column(Integer, primary_key=True)
 
    url_id             = Column(Integer, ForeignKey('urls_t.id'))
@@ -45,7 +45,7 @@ class Scarping_queue(Base):
       self.status              = status
 
 class Scraped_urls_logs(Base):
-   __tablename__ = 'scraped_urls_logs'
+   __tablename__ = 'scraped_urls_logs_t'
    id = Column(Integer, primary_key=True)
 
    url_id               = Column(Integer, ForeignKey('urls_t.id'))

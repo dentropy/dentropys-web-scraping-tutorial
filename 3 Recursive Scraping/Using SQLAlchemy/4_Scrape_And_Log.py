@@ -8,11 +8,10 @@ import uuid
 engine_path = "sqlite+pysqlite:///" + "/".join(os.getcwd().split("/")) + "/scraped_data.db"
 wso = WebScrapingOrchestration(engine_path)
 
-url_to_join = "https://westworld.fandom.com/wiki/Westworld_Wiki"
 
 row_to_scrape = wso.session.query(Scarping_queue, Urls).join(Urls).order_by(Scarping_queue.priority.desc()).first()
 row_to_scrape = dict(row_to_scrape[0].__dict__, **row_to_scrape[1].__dict__)
-pprint(row_to_scrape)
+
 
 f = urllib.request.urlopen(row_to_scrape["full_url"])
 contents = f.read().decode('utf-8')
