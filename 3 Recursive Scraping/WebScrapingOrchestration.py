@@ -58,8 +58,20 @@ class WebScrapingOrchestration():
     row_to_scrape = self.session.query(Scarping_queue, Urls).join(Urls).order_by(Scarping_queue.priority.desc()).first()
     row_to_scrape = dict(row_to_scrape[0].__dict__, **row_to_scrape[1].__dict__)
     f = urllib.request.urlopen(row_to_scrape["full_url"])
+    if (f.getcode() != 200):
+      self.session.add(Scraped_urls_logs(
+        row_to_scrape["url_id"],
+        content_id,
+        datetime.now(),
+        "completed",
+        f.getcode(),
+        None,
+        False
+      ))
+      self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["url_id"]).delete()
+      self.session.commit()
+      return False
     contents = f.read().decode('utf-8')
-
     content_id = str(uuid.uuid1())
     self.session.add(Url_contents(
       row_to_scrape["url_id"],
@@ -73,7 +85,7 @@ class WebScrapingOrchestration():
       content_id,
       datetime.now(),
       "completed",
-      None,
+      200,
       None,
       False
     ))

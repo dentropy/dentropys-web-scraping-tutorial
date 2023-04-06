@@ -52,16 +52,16 @@ class Scraped_urls_logs(Base):
    url_contents_id      = Column(Integer, ForeignKey('url_contents_t.content_id'))
    datetime_scraped     = Column(Date())
    status               = Column(String())
-   error_code           = Column(Integer())
+   response_code        = Column(Integer())
    error_description    = Column(String())
    links_extracted      = Column(Boolean())
 
-   def __init__(self, url_id, url_contents_id, datetime_scraped, status, error_code, error_description, links_extracted):
+   def __init__(self, url_id, url_contents_id, datetime_scraped, status, response_code, error_description, links_extracted):
       self.url_id               = url_id
       self.url_contents_id      = url_contents_id
       self.datetime_scraped     = datetime_scraped
       self.status               = status
-      self.error_code           = error_code
+      self.response_code        = response_code
       self.error_description    = error_description
       self.links_extracted      = links_extracted
 

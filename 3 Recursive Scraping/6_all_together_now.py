@@ -4,7 +4,7 @@ from db import Urls, Scarping_queue, Scraped_urls_logs, Url_contents
 engine_path = "sqlite+pysqlite:///" + "/".join(os.getcwd().split("/")) + "/scraped_data.db"
 wso = WebScrapingOrchestration(engine_path)
 
-url_to_scrape = "https://www.fandom.com/topics/game-of-thrones"
+url_to_scrape = "https://gameofthrones.fandom.com/wiki/Game_of_Thrones_Wiki"
 
 wso.test_database_connection()
 wso.insert_url(url_to_scrape)
