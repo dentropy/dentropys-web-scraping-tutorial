@@ -91,9 +91,6 @@ class WebScrapingOrchestration():
     ))
     self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["url_id"]).delete()
     self.session.commit()
-
-    if self.session.query(Scraped_urls_logs).count() > 0:
-      return False
     return True
 
   def extract_urls(self):
@@ -159,10 +156,16 @@ class WebScrapingOrchestration():
       return result
 
   def recursive_scraping(self, tld, recursive_limit):
-    # self.session.query(Scraped_urls_logs).count() < recursive_limit:
-    # Get all URL's that have tld in URL's table and add to queue
     urls_to_add = self.session.query(Urls).filter(Urls.netloc == tld)
     for url in urls_to_add:
-      print(url.full_url)
-      # self.add_url_to_scraping_queue(url.full_url)
-    # churn through queue until 0
+      self.add_url_to_scraping_queue(url.full_url)
+    while self.scrape_url() == True:
+      scraped_count = self.session.query(Scraped_urls_logs).count()
+      if scraped_count > 1000:
+        print("Logs indicate scraped over 1000 pages")
+        quit() 
+      self.extract_urls()
+      urls_to_add = self.session.query(Urls).filter(Urls.netloc == tld)
+      for url in urls_to_add:
+        self.add_url_to_scraping_queue(url.full_url)
+    print("Done Scraping")
