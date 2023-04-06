@@ -114,9 +114,15 @@ class WebScrapingOrchestration():
     for link in soup.find_all('a'):
       # print(link)
       FULL_URL = link.get('href')
+      if FULL_URL == None or FULL_URL == '#':
+        continue
       parsed_url = list( urlparse(FULL_URL) )
       if (parsed_url[1] == ''):
         parsed_url[1] = urlparse(html_contents_row["full_url"]).netloc
+      print("FULL_URL")
+      print(FULL_URL)
+      if FULL_URL[0] == "/":
+        FULL_URL = urlparse(html_contents_row["full_url"]).scheme + "://" + urlparse(html_contents_row["full_url"]).netloc + FULL_URL
       url_links.append( [FULL_URL] + parsed_url )
     url_column_dict = dict(Urls.__table__.columns)
     del url_column_dict["id"]
@@ -151,3 +157,12 @@ class WebScrapingOrchestration():
               else:
                   result[k] = v
       return result
+
+  def recursive_scraping(self, tld, recursive_limit):
+    # self.session.query(Scraped_urls_logs).count() < recursive_limit:
+    # Get all URL's that have tld in URL's table and add to queue
+    urls_to_add = self.session.query(Urls).filter(Urls.netloc == tld)
+    for url in urls_to_add:
+      print(url.full_url)
+      # self.add_url_to_scraping_queue(url.full_url)
+    # churn through queue until 0
