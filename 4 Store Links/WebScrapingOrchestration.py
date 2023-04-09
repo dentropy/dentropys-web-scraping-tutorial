@@ -137,6 +137,8 @@ class WebScrapingOrchestration():
       FULL_URL = link.get('href')
       if FULL_URL == None or FULL_URL == '#' or FULL_URL == '':
         continue
+      if FULL_URL[0] == '#':
+        continue
       parsed_url = list( urlparse(FULL_URL) )
       if (parsed_url[1] == ''):
         parsed_url[1] = urlparse(html_contents_row_dict["full_url"]).netloc
