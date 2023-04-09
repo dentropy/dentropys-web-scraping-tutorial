@@ -61,7 +61,10 @@ class WebScrapingOrchestration():
       return("You already have that URL queued up")
 
   def scrape_url(self):
+    # TODO why does this not work recursively anymore?
     row_to_scrape = self.session.query(Scarping_queue, Urls).join(Urls).order_by(Scarping_queue.priority.desc()).first()
+    if row_to_scrape == None:
+      return False
     row_to_scrape = dict(row_to_scrape[0].__dict__, **row_to_scrape[1].__dict__)
     f = urllib.request.urlopen(row_to_scrape["full_url"])
     if (f.getcode() != 200):
@@ -74,7 +77,9 @@ class WebScrapingOrchestration():
         None,
         False
       ))
-      self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["full_url"]).delete()
+      print("plz delete")
+      print(row_to_scrape["full_url"])
+      self.session.query(Scarping_queue).filter(Scarping_queue.full_url == row_to_scrape["full_url"]).delete()
       self.session.commit()
       return False
     contents = f.read().decode('utf-8')
@@ -95,7 +100,7 @@ class WebScrapingOrchestration():
       None,
       False
     ))
-    self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["full_url"]).delete()
+    self.session.query(Scarping_queue).filter(Scarping_queue.full_url == row_to_scrape["full_url"]).delete()
     self.session.commit()
     return True
 
@@ -159,7 +164,7 @@ class WebScrapingOrchestration():
     self.session.commit()
 
     print(f"URLS_T now has {self.session.query(Urls).count()} rows")
-    return True
+    return html_contents_row_dict["full_url"]
 
   def add_dicts(self, *dicts): # Thanks ChatGPT
       """
@@ -174,17 +179,41 @@ class WebScrapingOrchestration():
                   result[k] = v
       return result
 
-  def recursive_scraping(self, tld, recursive_limit):
-    urls_to_add = self.session.query(Urls).filter(Urls.netloc == tld)
-    for url in urls_to_add:
-      self.add_url_to_scraping_queue(url.full_url)
-    while self.scrape_url() == True:
+
+  def queue_up_urls(self, full_url):
+    # Find all links from full_url
+    links_to_add = self.session.query(Url_links).filter(Url_links.from_url_id == full_url).all()
+
+    ## TODO add netloc filter
+
+    if len(links_to_add) == 0:
+      return True
+    # Check if links are in Scraped_urls_logs or Scarping_queue
+    print("Adding")
+    for url in links_to_add:
+      Scraped_url_count = self.session.query(Scraped_urls_logs).\
+        filter(Scraped_urls_logs.full_url == url.to_url_id).count()
+      Scraped_logs_count = self.session.query(Scarping_queue).\
+        filter(Scarping_queue.full_url == url.to_url_id).count()
+      pprint(f"Scraped_url_count = {Scraped_url_count}")
+      pprint(f"Scraped_logs_count = {Scraped_logs_count}")
+      if Scraped_url_count == 0 and Scraped_logs_count == 0:
+        self.add_url_to_scraping_queue(url.to_url_id)
+    # Add Urls to scraping queue
+
+
+  def recursive_scraping(self, url_to_scrape, recursive_limit):
+    self.insert_url(url_to_scrape)
+    tld = urlparse(url_to_scrape).netloc
+    self.add_url_to_scraping_queue(url_to_scrape)
+    self.scrape_url()
+    self.extract_urls()
+    while self.scrape_url() != False:
       scraped_count = self.session.query(Scraped_urls_logs).count()
-      if scraped_count > 1000:
-        print("Logs indicate scraped over 1000 pages")
+      if scraped_count > recursive_limit:
+        print(f"Logs indicate scraped over {recursive_limit} pages, which is the limit you set")
         quit() 
-      self.extract_urls()
-      urls_to_add = self.session.query(Urls).filter(Urls.netloc == tld)
-      for url in urls_to_add:
-        self.add_url_to_scraping_queue(url.full_url)
+      full_url = self.extract_urls()
+      self.queue_up_urls(full_url)
+    self.queue_up_urls(url_to_scrape)
     print("Done Scraping")
