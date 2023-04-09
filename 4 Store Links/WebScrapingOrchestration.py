@@ -1,4 +1,4 @@
-from db import Base, Urls, Scarping_queue, Scraped_urls_logs, Url_contents
+from db import Base, Urls, Scarping_queue, Scraped_urls_logs, Url_contents, Url_links
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from urllib.parse import urlparse
@@ -10,6 +10,7 @@ try:
   from bs4 import BeautifulSoup
 except:
   print("You need to run `pip install beautifulsoup4`")
+from pprint import pprint
 
 class WebScrapingOrchestration():
   def __init__(self, engine_path):
@@ -39,11 +40,16 @@ class WebScrapingOrchestration():
     return True
 
   def add_url_to_scraping_queue(self, url_to_join):
+    """
+    Check if URL in urls_t, all urls are added there after a site is scraped
+    Check if URL in scraping_queue_t
+    """
     join_results = self.session.query(Urls).where(Urls.full_url == url_to_join).all()
-    result = self.session.query(Scarping_queue).where(Scarping_queue.url_id == join_results[0].id).all()
+    result = self.session.query(Scarping_queue).\
+      where(Scarping_queue.full_url == join_results[0].full_url).all()
     if len(result) == 0:
       self.session.add(Scarping_queue(
-        join_results[0].id,
+        join_results[0].full_url,
         255,             # priority
         datetime.now(),  # datetime_to_scrape
         "requests",      # scape_mode
@@ -60,7 +66,7 @@ class WebScrapingOrchestration():
     f = urllib.request.urlopen(row_to_scrape["full_url"])
     if (f.getcode() != 200):
       self.session.add(Scraped_urls_logs(
-        row_to_scrape["url_id"],
+        row_to_scrape["full_url"],
         content_id,
         datetime.now(),
         "completed",
@@ -68,20 +74,20 @@ class WebScrapingOrchestration():
         None,
         False
       ))
-      self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["url_id"]).delete()
+      self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["full_url"]).delete()
       self.session.commit()
       return False
     contents = f.read().decode('utf-8')
     content_id = str(uuid.uuid1())
     self.session.add(Url_contents(
-      row_to_scrape["url_id"],
+      row_to_scrape["full_url"],
       content_id,
       contents
     ))
     session_status = self.session.commit()
 
     self.session.add(Scraped_urls_logs(
-      row_to_scrape["url_id"],
+      row_to_scrape["full_url"],
       content_id,
       datetime.now(),
       "completed",
@@ -89,24 +95,24 @@ class WebScrapingOrchestration():
       None,
       False
     ))
-    self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["url_id"]).delete()
+    self.session.query(Scarping_queue).filter(Scarping_queue.id == row_to_scrape["full_url"]).delete()
     self.session.commit()
     return True
 
   def extract_urls(self):
     # Find URL that did not have the links extracted
     html_contents_row = self.session.query(Scraped_urls_logs, Urls, Url_contents)\
-      .join(Urls, Scraped_urls_logs.url_id == Urls.id)\
+      .join(Urls, Scraped_urls_logs.full_url == Urls.full_url)\
       .join(Url_contents, Scraped_urls_logs.url_contents_id == Url_contents.content_id) \
       .filter(Scraped_urls_logs.links_extracted == False).first()
     if html_contents_row == None:
       print("There are no HTML pages to scrape, or you already processed the URLs")
       quit()
-    html_contents_row = self.add_dicts(html_contents_row[0].__dict__, html_contents_row[1].__dict__, html_contents_row[2].__dict__)
+    html_contents_row_dict = self.add_dicts(html_contents_row[0].__dict__, html_contents_row[1].__dict__, html_contents_row[2].__dict__)
 
 
     # Get the links
-    soup = BeautifulSoup(html_contents_row["html"], 'html.parser')
+    soup = BeautifulSoup(html_contents_row_dict["html"], 'html.parser')
     url_links = []
     for link in soup.find_all('a'):
       # print(link)
@@ -115,27 +121,40 @@ class WebScrapingOrchestration():
         continue
       parsed_url = list( urlparse(FULL_URL) )
       if (parsed_url[1] == ''):
-        parsed_url[1] = urlparse(html_contents_row["full_url"]).netloc
-      print("FULL_URL")
-      print(FULL_URL)
+        parsed_url[1] = urlparse(html_contents_row_dict["full_url"]).netloc
+      # print("FULL_URL")
+      # print(FULL_URL)
       if FULL_URL[0] == "/":
-        FULL_URL = urlparse(html_contents_row["full_url"]).scheme + "://" + urlparse(html_contents_row["full_url"]).netloc + FULL_URL
+        FULL_URL = urlparse(html_contents_row_dict["full_url"]).scheme + "://" + urlparse(html_contents_row_dict["full_url"]).netloc + FULL_URL
       url_links.append( [FULL_URL] + parsed_url )
-    url_column_dict = dict(Urls.__table__.columns)
-    del url_column_dict["id"]
-    for url in url_links:
-      if len(url) == 7:
-        insert_dict = {}  
-        for i in range(len(list(url_column_dict))):
-          # print(list(url_column_dict)[i])
-          insert_dict[list(url_column_dict)[i]] = url[i]
-        self.session.add(Urls(**insert_dict))
-      else:
-        print(f"Error with {str(url)}")
 
+    # Format the links and save them to session
+
+    url_column_dict = dict(Urls.__table__.columns)
+    # current_url_row = session.query(Urls).filter(Urls.full_url == ).first()
+    for url in url_links:
+      pprint(url)
+      if len(url) == 7:
+        if self.session.query(Urls).filter(Urls.full_url == url[0]).count() == 0:
+          insert_dict = {}  
+          for i in range(len(list(url_column_dict))):
+            # print(list(url_column_dict)[i])
+            insert_dict[list(url_column_dict)[i]] = url[i]
+          url_to_add = Urls(**insert_dict)
+          Url_links(html_contents_row[1], url_to_add)
+          self.session.add(url_to_add)
+        else:
+          print(f"Error in extract_urls with {str(url)}, already in urls_t")
+      else:
+        print(f"Error in extract_urls processing {str(url)}")
     self.session.commit()
 
-    log = self.session.query(Scraped_urls_logs).filter_by(id=html_contents_row["id"]).first()
+    # Store the links
+    
+
+
+    log = self.session.query(Scraped_urls_logs).\
+      filter(Scraped_urls_logs.full_url == html_contents_row_dict["full_url"]).first()
     log.links_extracted = True
     self.session.commit()
 

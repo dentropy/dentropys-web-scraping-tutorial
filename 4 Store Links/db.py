@@ -8,9 +8,7 @@ Base = declarative_base()
 
 class Urls(Base):
    __tablename__ = 'urls_t'
-   id = Column(Integer, primary_key=True)
-
-   full_url          = Column(String)
+   full_url          = Column(String, primary_key=True)
    scheme            = Column(String)
    netloc            = Column(String)
    path              = Column(String)
@@ -36,30 +34,30 @@ class Urls(Base):
 # [examples.graphs.directed\_graph — SQLAlchemy 2.0 Documentation](https://docs.sqlalchemy.org/en/20/_modules/examples/graphs/directed_graph.html)
 class Url_links(Base):
     __tablename__ = "url_links_t"
-    from_url_id = Column(Integer, ForeignKey("urls_t.id"), primary_key=True)
-    to_url_id   = Column(Integer, ForeignKey("urls_t.id"), primary_key=True)
+    from_url_id = Column(Integer, ForeignKey("urls_t.full_url"), primary_key=True)
+    to_url_id   = Column(Integer, ForeignKey("urls_t.full_url"), primary_key=True)
     from_url_node = relationship(
-        Urls,  primaryjoin=lower_id == Urls.id, backref="from_url_edge"
+        Urls,  primaryjoin=from_url_id == Urls.full_url, backref="from_url_edge"
     )
     to_url_node = relationship(
-        Urls,  primaryjoin=higher_id == Urls.id, backref="to_url_edge"
+        Urls,  primaryjoin=to_url_id == Urls.full_url, backref="to_url_edge"
     )
-    def __init__(self, n1, n2):
-        self.lower_node = n1
-        self.higher_node = n2
+    def __init__(self, from_url, to_url):
+        self.from_url_node = from_url
+        self.to_url_node   = to_url
 
 class Scarping_queue(Base):
    __tablename__ = 'scraping_queue_t'
    id = Column(Integer, primary_key=True)
 
-   url_id             = Column(Integer, ForeignKey('urls_t.id'))
-   priority           = Column(Integer())
-   datetime_to_scrape = Column(Date())
-   scrape_mode        = Column(String())
-   status             = Column(String())
+   full_url           = Column(String, ForeignKey('urls_t.full_url'))
+   priority           = Column(Integer)
+   datetime_to_scrape = Column(Date)
+   scrape_mode        = Column(String)
+   status             = Column(String)
 
-   def __init__(self, url_id, priority, datetime_to_scrape, scrape_mode, status):
-      self.url_id              = url_id
+   def __init__(self, full_url, priority, datetime_to_scrape, scrape_mode, status):
+      self.full_url            = full_url
       self.priority            = priority
       self.datetime_to_scrape  = datetime_to_scrape
       self.scrape_mode         = scrape_mode
@@ -69,16 +67,16 @@ class Scraped_urls_logs(Base):
    __tablename__ = 'scraped_urls_logs_t'
    id = Column(Integer, primary_key=True)
 
-   url_id               = Column(Integer, ForeignKey('urls_t.id'))
+   full_url             = Column(String, ForeignKey('urls_t.full_url'))
    url_contents_id      = Column(Integer, ForeignKey('url_contents_t.content_id'))
-   datetime_scraped     = Column(Date())
-   status               = Column(String())
-   response_code        = Column(Integer())
-   error_description    = Column(String())
-   links_extracted      = Column(Boolean())
+   datetime_scraped     = Column(Date)
+   status               = Column(String)
+   response_code        = Column(Integer)
+   error_description    = Column(String)
+   links_extracted      = Column(Boolean)
 
-   def __init__(self, url_id, url_contents_id, datetime_scraped, status, response_code, error_description, links_extracted):
-      self.url_id               = url_id
+   def __init__(self, full_url, url_contents_id, datetime_scraped, status, response_code, error_description, links_extracted):
+      self.full_url             = full_url
       self.url_contents_id      = url_contents_id
       self.datetime_scraped     = datetime_scraped
       self.status               = status
@@ -90,12 +88,12 @@ class Url_contents(Base):
    __tablename__ = 'url_contents_t'
    id = Column(Integer, primary_key=True)
 
-   url_id      = Column(Integer, ForeignKey('urls_t.id'))
-   content_id  = Column(String())
-   html        = Column(Text())
+   full_url    = Column(String, ForeignKey('urls_t.full_url'))
+   content_id  = Column(String)
+   html        = Column(Text)
 
-   def __init__(self, url_id, content_id, html):
-      self.url_id        = url_id
+   def __init__(self, full_url, content_id, html):
+      self.full_url      = full_url
       self.content_id    = content_id
       self.html          = html
 
