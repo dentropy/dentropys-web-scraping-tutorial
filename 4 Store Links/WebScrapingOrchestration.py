@@ -122,7 +122,7 @@ class WebScrapingOrchestration():
     for link in soup.find_all('a'):
       # print(link)
       FULL_URL = link.get('href')
-      if FULL_URL == None or FULL_URL == '#':
+      if FULL_URL == None or FULL_URL == '#' or FULL_URL == '':
         continue
       parsed_url = list( urlparse(FULL_URL) )
       if (parsed_url[1] == ''):
@@ -145,6 +145,7 @@ class WebScrapingOrchestration():
           for i in range(len(list(url_column_dict))):
             # print(list(url_column_dict)[i])
             insert_dict[list(url_column_dict)[i]] = url[i]
+          # Store the links
           url_to_add = Urls(**insert_dict)
           Url_links(html_contents_row[1], url_to_add)
           self.session.add(url_to_add)
@@ -153,10 +154,6 @@ class WebScrapingOrchestration():
       else:
         print(f"Error in extract_urls processing {str(url)}")
     self.session.commit()
-
-    # Store the links
-    
-
 
     log = self.session.query(Scraped_urls_logs).\
       filter(Scraped_urls_logs.full_url == html_contents_row_dict["full_url"]).first()
@@ -180,40 +177,50 @@ class WebScrapingOrchestration():
       return result
 
 
-  def queue_up_urls(self, full_url):
+  def queue_up_urls(self, full_url, tld):
     # Find all links from full_url
-    links_to_add = self.session.query(Url_links).filter(Url_links.from_url_id == full_url).all()
-
+    links_to_add = self.session.query(Url_links, Urls)\
+      .join(Url_links, Url_links.from_url_id == Urls.full_url)\
+      .filter(
+        Url_links.from_url_id == full_url,
+        Urls.netloc           == tld
+      ).all()
+    for i in links_to_add:
+      pprint(i)
     ## TODO add netloc filter
 
     if len(links_to_add) == 0:
       return True
     # Check if links are in Scraped_urls_logs or Scarping_queue
     print("Adding")
-    for url in links_to_add:
+    for tmp_url in links_to_add:
+      pprint("url")
+      pprint(tmp_url)
       Scraped_url_count = self.session.query(Scraped_urls_logs).\
-        filter(Scraped_urls_logs.full_url == url.to_url_id).count()
+        filter(Scraped_urls_logs.full_url == tmp_url[0].to_url_id).count()
       Scraped_logs_count = self.session.query(Scarping_queue).\
-        filter(Scarping_queue.full_url == url.to_url_id).count()
+        filter(Scarping_queue.full_url == tmp_url[0].to_url_id).count()
       pprint(f"Scraped_url_count = {Scraped_url_count}")
       pprint(f"Scraped_logs_count = {Scraped_logs_count}")
       if Scraped_url_count == 0 and Scraped_logs_count == 0:
-        self.add_url_to_scraping_queue(url.to_url_id)
+        self.add_url_to_scraping_queue(tmp_url[0].to_url_id)
     # Add Urls to scraping queue
 
 
   def recursive_scraping(self, url_to_scrape, recursive_limit):
-    self.insert_url(url_to_scrape)
     tld = urlparse(url_to_scrape).netloc
+    self.insert_url(url_to_scrape)
     self.add_url_to_scraping_queue(url_to_scrape)
-    self.scrape_url()
-    self.extract_urls()
-    while self.scrape_url() != False:
+    scraping_status = True
+    while scraping_status != False:
       scraped_count = self.session.query(Scraped_urls_logs).count()
+      pprint(f"scraped_count = {scraped_count}")
       if scraped_count > recursive_limit:
         print(f"Logs indicate scraped over {recursive_limit} pages, which is the limit you set")
         quit() 
+      scraping_status = self.scrape_url()
+      pprint(f"scraping_status = {scraping_status}")
       full_url = self.extract_urls()
-      self.queue_up_urls(full_url)
-    self.queue_up_urls(url_to_scrape)
+      pprint(f"my_full_url = {full_url}")  
+      self.queue_up_urls(str(full_url), tld)
     print("Done Scraping")
