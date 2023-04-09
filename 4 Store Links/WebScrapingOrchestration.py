@@ -66,7 +66,22 @@ class WebScrapingOrchestration():
     if row_to_scrape == None:
       return False
     row_to_scrape = dict(row_to_scrape[0].__dict__, **row_to_scrape[1].__dict__)
-    f = urllib.request.urlopen(row_to_scrape["full_url"])
+    content_id = ""
+    try:
+      f = urllib.request.urlopen(row_to_scrape["full_url"])
+    except Exception as e:
+      self.session.add(Scraped_urls_logs(
+        row_to_scrape["full_url"],
+        content_id,
+        datetime.now(),
+        "completed",
+        0,
+        str(e),
+        False
+      ))
+      self.session.query(Scarping_queue).filter(Scarping_queue.full_url == row_to_scrape["full_url"]).delete()
+      self.session.commit()
+      return False
     if (f.getcode() != 200):
       self.session.add(Scraped_urls_logs(
         row_to_scrape["full_url"],
@@ -77,8 +92,6 @@ class WebScrapingOrchestration():
         None,
         False
       ))
-      print("plz delete")
-      print(row_to_scrape["full_url"])
       self.session.query(Scarping_queue).filter(Scarping_queue.full_url == row_to_scrape["full_url"]).delete()
       self.session.commit()
       return False
@@ -185,17 +198,12 @@ class WebScrapingOrchestration():
         Url_links.from_url_id == full_url,
         Urls.netloc           == tld
       ).all()
-    for i in links_to_add:
-      pprint(i)
-    ## TODO add netloc filter
-
     if len(links_to_add) == 0:
       return True
     # Check if links are in Scraped_urls_logs or Scarping_queue
-    print("Adding")
     for tmp_url in links_to_add:
-      pprint("url")
-      pprint(tmp_url)
+      if tld not in str(tmp_url[0].to_url_id):
+        continue
       Scraped_url_count = self.session.query(Scraped_urls_logs).\
         filter(Scraped_urls_logs.full_url == tmp_url[0].to_url_id).count()
       Scraped_logs_count = self.session.query(Scarping_queue).\
@@ -212,13 +220,15 @@ class WebScrapingOrchestration():
     self.insert_url(url_to_scrape)
     self.add_url_to_scraping_queue(url_to_scrape)
     scraping_status = True
-    while scraping_status != False:
+    while scraping_status != "":
       scraped_count = self.session.query(Scraped_urls_logs).count()
       pprint(f"scraped_count = {scraped_count}")
       if scraped_count > recursive_limit:
         print(f"Logs indicate scraped over {recursive_limit} pages, which is the limit you set")
         quit() 
       scraping_status = self.scrape_url()
+      if scraping_status == False:
+        continue
       pprint(f"scraping_status = {scraping_status}")
       full_url = self.extract_urls()
       pprint(f"my_full_url = {full_url}")  

@@ -6,4 +6,4 @@ wso = WebScrapingOrchestration(engine_path)
 
 url_to_scrape = "https://theculture.fandom.com/wiki/The_Culture_Wiki"
 
-wso.recursive_scraping(url_to_scrape, 3)
+wso.recursive_scraping(url_to_scrape, 25)
